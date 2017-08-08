@@ -88,6 +88,7 @@ vector<int> solve_vertex_swap() {
     path.pop_back();
     return path;
 }
+
 vector<int> solve_2opt() {
     vector<int> path = solve_greedy();
     path.push_back(n + 1);
@@ -122,6 +123,22 @@ double calculate_length(vector<int> const & path) {
     return acc;
 }
 
+vector<int> solve_bruteforce() {
+    vector<int> result;
+    double result_length = INFINITY;
+    vector<int> path(n + 1);
+    iota(whole(path), 0);
+    do {
+        if (path.front() != 0) break;
+        double path_length = calculate_length(path);
+        if (path_length < result_length) {
+            result = path;
+            result_length = path_length;
+        }
+    } while (next_permutation(whole(path)));
+    return result;
+}
+
 vector<int> solve_2opt_sa() {
     vector<int> path = solve_greedy();
     path.push_back(n + 1);
@@ -132,11 +149,9 @@ vector<int> solve_2opt_sa() {
     double temp = 0;
     for (int iteration = 0; ; ++ iteration) {
         if (check_tle()) break;
-        temp = max<int>(0, 2600 - chrono::duration_cast<chrono::milliseconds>(clock_end - clock_begin).count());
-        bool modified = false;
+        temp = max<int>(1, 2600 - chrono::duration_cast<chrono::milliseconds>(clock_end - clock_begin).count());
         repeat_from (i, 1, n) {
             repeat_from (j, i + 1, n + 1) {
-                if (path[i + 1] == path[j]) continue;
                 double delta = 0;
                 delta -= d(i - 1, i) + d(j, j + 1);
                 delta += d(i - 1, j) + d(i, j + 1);
@@ -147,11 +162,193 @@ vector<int> solve_2opt_sa() {
                         best = path;
                         best_acc = acc;
                     }
-                    modified = true;
                 }
             }
         }
-        // if (not modified) break;
+    }
+    path = best;
+    assert (path.back() == n + 1);
+    path.pop_back();
+    return path;
+}
+
+vector<int> solve_3opt() {
+    vector<int> path = solve_greedy();
+    path.push_back(n + 1);
+    double acc = calculate_length(path);
+    vector<int> best = path;
+    double best_acc = acc;
+    auto d = [&](int i, int j) { return dist[path[i]][path[j]]; };
+    for (int iteration = 0; ; ++ iteration) {
+        if (check_tle()) break;
+        repeat_from (i, 1, n - 1) {
+            repeat_from (j, i + 1, n) {
+                repeat_from (k, j + 1, n + 1) {
+                    double delta[5];
+                    delta[0] = d(i, i + 1) + d(j, j + 1) + d(k, k+1); // the original distance
+                    delta[1] = d(i, k) + d(j + 1, i + 1) + d(j, k + 1);
+                    delta[2] = d(i, j + 1) + d(k, j) + d(i + 1, k + 1);
+                    delta[3] = d(i, j + 1) + d(k, i + 1) + d(j, k + 1);
+                    delta[4] = d(i, j) + d(i + 1, k) + d(j + 1, k + 1);
+                    int l_min = 0;
+                    repeat_from (l, 1, 5) {
+                        if (delta[l] < delta[l_min]) l_min = l;
+                    }
+                    if (l_min == 0) continue;
+                    vector<int> cache;
+                    if (l_min == 1) {
+                        reverse_copy(path.begin() + (j + 1), path.begin() + (k + 1), back_inserter(cache));
+                        copy(path.begin() + (i + 1), path.begin() + (j + 1), back_inserter(cache));
+                    } else if (l_min == 2) {
+                        copy(path.begin() + (j + 1), path.begin() + (k + 1), back_inserter(cache));
+                        reverse_copy(path.begin() + (i + 1), path.begin() + (j + 1), back_inserter(cache));
+                    } else if (l_min == 3) {
+                        copy(path.begin() + (j + 1), path.begin() + (k + 1), back_inserter(cache));
+                        copy(path.begin() + (i + 1), path.begin() + (j + 1), back_inserter(cache));
+                    } else if (l_min == 4) {
+                        reverse_copy(path.begin() + (i + 1), path.begin() + (j + 1), back_inserter(cache));
+                        reverse_copy(path.begin() + (j + 1), path.begin() + (k + 1), back_inserter(cache));
+                    }
+                    copy(whole(cache), path.begin() + (i + 1));
+                    acc += delta[l_min] - delta[0];
+                    if (acc < best_acc) {
+                        best = path;
+                        best_acc = acc;
+                    }
+                }
+            }
+        }
+    }
+    path = best;
+    assert (path.back() == n + 1);
+    path.pop_back();
+    return path;
+}
+
+vector<int> solve_3opt_sa() {
+    vector<int> path = solve_greedy();
+    path.push_back(n + 1);
+    double acc = calculate_length(path);
+    vector<int> best = path;
+    double best_acc = acc;
+    auto d = [&](int i, int j) { return dist[path[i]][path[j]]; };
+    double temp = 0;
+    for (int iteration = 0; ; ++ iteration) {
+        if (check_tle()) break;
+        temp = max<int>(1, 2600 - chrono::duration_cast<chrono::milliseconds>(clock_end - clock_begin).count());
+        repeat_from (i, 1, n - 1) {
+            repeat_from (j, i + 1, n) {
+                repeat_from (k, j + 1, n + 1) {
+                    double prev = d(i, i + 1) + d(j, j + 1) + d(k, k+1);
+                    double next[4];
+                    next[0] = d(i, k) + d(j + 1, i + 1) + d(j, k + 1);
+                    next[1] = d(i, j + 1) + d(k, j) + d(i + 1, k + 1);
+                    next[2] = d(i, j + 1) + d(k, i + 1) + d(j, k + 1);
+                    next[3] = d(i, j) + d(i + 1, k) + d(j + 1, k + 1);
+                    int l_min = 3;
+                    repeat (l, 3) {
+                        if (next[l] < next[l_min]) l_min = l;
+                    }
+                    double delta = next[l_min] - prev;
+                    if (delta < - eps or bernoulli_distribution(exp(- delta / temp))(gen)) {
+                        vector<int> cache;
+                        if (l_min == 0) {
+                            reverse_copy(path.begin() + (j + 1), path.begin() + (k + 1), back_inserter(cache));
+                            copy(path.begin() + (i + 1), path.begin() + (j + 1), back_inserter(cache));
+                        } else if (l_min == 1) {
+                            copy(path.begin() + (j + 1), path.begin() + (k + 1), back_inserter(cache));
+                            reverse_copy(path.begin() + (i + 1), path.begin() + (j + 1), back_inserter(cache));
+                        } else if (l_min == 2) {
+                            copy(path.begin() + (j + 1), path.begin() + (k + 1), back_inserter(cache));
+                            copy(path.begin() + (i + 1), path.begin() + (j + 1), back_inserter(cache));
+                        } else if (l_min == 3) {
+                            reverse_copy(path.begin() + (i + 1), path.begin() + (j + 1), back_inserter(cache));
+                            reverse_copy(path.begin() + (j + 1), path.begin() + (k + 1), back_inserter(cache));
+                        }
+                        copy(whole(cache), path.begin() + (i + 1));
+                        acc += delta;
+                        if (acc < best_acc) {
+                            best = path;
+                            best_acc = acc;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    path = best;
+    assert (path.back() == n + 1);
+    path.pop_back();
+    return path;
+}
+
+vector<int> solve_both_sa() {
+    vector<int> path = solve_greedy();
+    path.push_back(n + 1);
+    double acc = calculate_length(path);
+    vector<int> best = path;
+    double best_acc = acc;
+    auto d = [&](int i, int j) { return dist[path[i]][path[j]]; };
+    double temp = 0;
+    for (int iteration = 0; ; ++ iteration) {
+        if (check_tle()) break;
+        temp = max<int>(1, 2600 - chrono::duration_cast<chrono::milliseconds>(clock_end - clock_begin).count()) * 7;
+        repeat_from (i, 1, n) {
+            repeat_from (j, i + 1, n + 1) {
+                double delta = 0;
+                delta -= d(i - 1, i) + d(j, j + 1);
+                delta += d(i - 1, j) + d(i, j + 1);
+                if (delta < - eps or bernoulli_distribution(exp(- delta / temp))(gen)) {
+                    reverse(path.begin() + i, path.begin() + (j + 1));
+                    acc += delta;
+                    if (acc < best_acc) {
+                        best = path;
+                        best_acc = acc;
+                    }
+                }
+            }
+        }
+        if (check_tle()) break;
+        temp = max<int>(1, 2600 - chrono::duration_cast<chrono::milliseconds>(clock_end - clock_begin).count()) * 7;
+        repeat_from (i, 1, n - 1) {
+            repeat_from (j, i + 1, n) {
+                repeat_from (k, j + 1, n + 1) {
+                    double prev = d(i, i + 1) + d(j, j + 1) + d(k, k+1);
+                    double next[4];
+                    next[0] = d(i, k) + d(j + 1, i + 1) + d(j, k + 1);
+                    next[1] = d(i, j + 1) + d(k, j) + d(i + 1, k + 1);
+                    next[2] = d(i, j + 1) + d(k, i + 1) + d(j, k + 1);
+                    next[3] = d(i, j) + d(i + 1, k) + d(j + 1, k + 1);
+                    int l_min = 3;
+                    repeat (l, 3) {
+                        if (next[l] < next[l_min]) l_min = l;
+                    }
+                    double delta = next[l_min] - prev;
+                    if (delta < - eps or bernoulli_distribution(exp(- delta / temp))(gen)) {
+                        vector<int> cache;
+                        if (l_min == 0) {
+                            reverse_copy(path.begin() + (j + 1), path.begin() + (k + 1), back_inserter(cache));
+                            copy(path.begin() + (i + 1), path.begin() + (j + 1), back_inserter(cache));
+                        } else if (l_min == 1) {
+                            copy(path.begin() + (j + 1), path.begin() + (k + 1), back_inserter(cache));
+                            reverse_copy(path.begin() + (i + 1), path.begin() + (j + 1), back_inserter(cache));
+                        } else if (l_min == 2) {
+                            copy(path.begin() + (j + 1), path.begin() + (k + 1), back_inserter(cache));
+                            copy(path.begin() + (i + 1), path.begin() + (j + 1), back_inserter(cache));
+                        } else if (l_min == 3) {
+                            reverse(path.begin() + (i + 1), path.begin() + (j + 1));
+                            reverse(path.begin() + (j + 1), path.begin() + (k + 1));
+                        }
+                        copy(whole(cache), path.begin() + (i + 1));
+                        acc += delta;
+                        if (acc < best_acc) {
+                            best = path;
+                            best_acc = acc;
+                        }
+                    }
+                }
+            }
+        }
     }
     path = best;
     assert (path.back() == n + 1);
@@ -174,7 +371,7 @@ vector<int> solve(int a_n, vector<int> const & y, vector<int> const & x) {
         }
     }
     // solve
-    vector<int> path = solve_2opt_sa();
+    vector<int> path = n <= 6 ? solve_bruteforce() : solve_both_sa();
     assert (path.size() == n + 1);
     // result
     fprintf(stderr, "result: %lfm\n", calculate_length(path));
@@ -196,5 +393,10 @@ int main() {
         int j = path[i];
         printf("%d %d\n", y[j], x[j]);
     }
+    // check
+    sort(whole(path));
+    path.erase(unique(whole(path)), path.end());
+    assert (path.size() == n);
+    assert (path.front() == 0 and path.back() == n - 1);
     return 0;
 }
