@@ -33,7 +33,7 @@ chrono::high_resolution_clock::time_point clock_begin;
 chrono::high_resolution_clock::time_point clock_end;
 bool check_tle() {
     clock_end = chrono::high_resolution_clock::now();
-    return chrono::duration_cast<chrono::milliseconds>(clock_end - clock_begin).count() >= 2900;
+    return chrono::duration_cast<chrono::milliseconds>(clock_end - clock_begin).count() >= 2950;
 }
 default_random_engine gen;
 
@@ -282,6 +282,17 @@ vector<int> solve_3opt_sa() {
     return path;
 }
 
+string vector_int_to_string(vector<int> const & xs) {
+    string s;
+    for (int x : xs) s += char(x);
+    return s;
+}
+vector<int> string_to_vector_int(string const & s) {
+    vector<int> xs;
+    for (char c : s) xs.push_back(c);
+    return xs;
+}
+
 vector<int> solve_both_sa() {
     vector<int> path = solve_greedy();
     path.push_back(n + 1);
@@ -290,7 +301,8 @@ vector<int> solve_both_sa() {
     double best_acc = acc;
     auto d = [&](int i, int j) { return dist[path[i]][path[j]]; };
     double temp = 0;
-    for (int iteration = 0; ; ++ iteration) {
+    int iteration = 0;
+    for (; ; ++ iteration) {
         if (check_tle()) break;
         temp = max<int>(1, 2600 - chrono::duration_cast<chrono::milliseconds>(clock_end - clock_begin).count()) * 7;
         repeat_from (i, 1, n) {
@@ -333,8 +345,7 @@ vector<int> solve_both_sa() {
                             copy(path.begin() + (j + 1), path.begin() + (k + 1), back_inserter(cache));
                             reverse_copy(path.begin() + (i + 1), path.begin() + (j + 1), back_inserter(cache));
                         } else if (l_min == 2) {
-                            copy(path.begin() + (j + 1), path.begin() + (k + 1), back_inserter(cache));
-                            copy(path.begin() + (i + 1), path.begin() + (j + 1), back_inserter(cache));
+                            rotate(path.begin() + (i + 1), path.begin() + (j + 1), path.begin() + (k + 1));
                         } else if (l_min == 3) {
                             reverse(path.begin() + (i + 1), path.begin() + (j + 1));
                             reverse(path.begin() + (j + 1), path.begin() + (k + 1));
@@ -350,6 +361,7 @@ vector<int> solve_both_sa() {
             }
         }
     }
+    fprintf(stderr, "iteration: %d\n", iteration);
     path = best;
     assert (path.back() == n + 1);
     path.pop_back();
@@ -360,6 +372,7 @@ vector<int> solve(int a_n, vector<int> const & y, vector<int> const & x) {
     assert (a_n <= MAX_N);
     // prepare
     clock_begin = clock_end = chrono::high_resolution_clock::now();
+    gen = default_random_engine(random_device()());
     n = a_n;
     constexpr int root = 0;
     dist[root][root] = 0;
