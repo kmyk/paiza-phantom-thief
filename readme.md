@@ -7,4 +7,6 @@
 ## メモ
 
 -   単純greedy: 144850m
--   単純greedy + swap: 141672m
+-   単純greedy + 頂点swap: 141672m
+-   単純greedy + 2opt: 137515m
+-   単純greedy + 2opt + SA: 131167m

@@ -30,8 +30,9 @@ template <typename X, typename Y, typename Z, typename... Zs> auto vectors(X x, 
 
 
 chrono::high_resolution_clock::time_point clock_begin;
+chrono::high_resolution_clock::time_point clock_end;
 bool check_tle() {
-    chrono::high_resolution_clock::time_point clock_end = chrono::high_resolution_clock::now();
+    clock_end = chrono::high_resolution_clock::now();
     return chrono::duration_cast<chrono::milliseconds>(clock_end - clock_begin).count() >= 2900;
 }
 default_random_engine gen;
@@ -39,8 +40,7 @@ default_random_engine gen;
 constexpr double eps = 1e-6;
 constexpr int MAX_N = 100;
 int n;
-double dist[MAX_N + 2][MAX_N + 2];
-double calculate_length(vector<int> const & path); // for debug
+double dist[MAX_N + 10][MAX_N + 10] = {};
 vector<int> solve_greedy() {
     vector<int> path(n + 1);
     vector<bool> used(n + 1);
@@ -61,10 +61,7 @@ vector<int> solve_greedy() {
     }
     return path;
 }
-vector<int> solve_swap() {
-    // vector<int> path(n + 2);
-    // iota(whole(path), 0);
-    // shuffle(path.begin() + 1, path.begin() + (n + 1), gen);
+vector<int> solve_vertex_swap() {
     vector<int> path = solve_greedy();
     path.push_back(n + 1);
     for (int iteration = 0; ; ++ iteration) {
@@ -91,6 +88,31 @@ vector<int> solve_swap() {
     path.pop_back();
     return path;
 }
+vector<int> solve_2opt() {
+    vector<int> path = solve_greedy();
+    path.push_back(n + 1);
+    auto d = [&](int i, int j) { return dist[path[i]][path[j]]; };
+    for (int iteration = 0; ; ++ iteration) {
+        bool modified = false;
+        repeat_from (i, 1, n) {
+            repeat_from (j, i + 1, n + 1) {
+                if (path[i + 1] == path[j]) continue;
+                double delta = 0;
+                delta -= d(i - 1, i) + d(j, j + 1);
+                delta += d(i - 1, j) + d(i, j + 1);
+                if (delta < - eps) {
+                    reverse(path.begin() + i, path.begin() + (j + 1));
+                    modified = true;
+                }
+            }
+        }
+        if (not modified) break;
+        if (iteration % 128 == 0 and check_tle()) break;
+    }
+    assert (path.back() == n + 1);
+    path.pop_back();
+    return path;
+}
 
 double calculate_length(vector<int> const & path) {
     double acc = 0;
@@ -100,10 +122,47 @@ double calculate_length(vector<int> const & path) {
     return acc;
 }
 
+vector<int> solve_2opt_sa() {
+    vector<int> path = solve_greedy();
+    path.push_back(n + 1);
+    double acc = calculate_length(path);
+    vector<int> best = path;
+    double best_acc = acc;
+    auto d = [&](int i, int j) { return dist[path[i]][path[j]]; };
+    double temp = 0;
+    for (int iteration = 0; ; ++ iteration) {
+        if (check_tle()) break;
+        temp = max<int>(0, 2600 - chrono::duration_cast<chrono::milliseconds>(clock_end - clock_begin).count());
+        bool modified = false;
+        repeat_from (i, 1, n) {
+            repeat_from (j, i + 1, n + 1) {
+                if (path[i + 1] == path[j]) continue;
+                double delta = 0;
+                delta -= d(i - 1, i) + d(j, j + 1);
+                delta += d(i - 1, j) + d(i, j + 1);
+                if (delta < - eps or bernoulli_distribution(exp(- delta / temp))(gen)) {
+                    reverse(path.begin() + i, path.begin() + (j + 1));
+                    acc += delta;
+                    if (acc < best_acc) {
+                        best = path;
+                        best_acc = acc;
+                    }
+                    modified = true;
+                }
+            }
+        }
+        // if (not modified) break;
+    }
+    path = best;
+    assert (path.back() == n + 1);
+    path.pop_back();
+    return path;
+}
+
 vector<int> solve(int a_n, vector<int> const & y, vector<int> const & x) {
     assert (a_n <= MAX_N);
     // prepare
-    clock_begin = chrono::high_resolution_clock::now();
+    clock_begin = clock_end = chrono::high_resolution_clock::now();
     n = a_n;
     constexpr int root = 0;
     dist[root][root] = 0;
@@ -113,11 +172,9 @@ vector<int> solve(int a_n, vector<int> const & y, vector<int> const & x) {
         repeat (j, n) {
             dist[i + 1][j + 1] = hypot(y[j] - y[i], x[j] - x[i]);
         }
-        dist[n + 1][i + 1] = 0;
-        dist[i + 1][n + 1] = 0;
     }
     // solve
-    vector<int> path = solve_swap();
+    vector<int> path = solve_2opt_sa();
     assert (path.size() == n + 1);
     // result
     fprintf(stderr, "result: %lfm\n", calculate_length(path));
