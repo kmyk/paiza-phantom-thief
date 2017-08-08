@@ -293,8 +293,64 @@ vector<int> string_to_vector_int(string const & s) {
     return xs;
 }
 
+struct disjoint_sets {
+    vector<int> data;
+    disjoint_sets() = default;
+    explicit disjoint_sets(size_t n) : data(n, -1) {}
+    bool is_root(int i) { return data[i] < 0; }
+    int find_root(int i) { return is_root(i) ? i : (data[i] = find_root(data[i])); }
+    int set_size(int i) { return - data[find_root(i)]; }
+    int union_sets(int i, int j) {
+        i = find_root(i); j = find_root(j);
+        if (i != j) {
+            if (set_size(i) < set_size(j)) swap(i,j);
+            data[i] += data[j];
+            data[j] = i;
+        }
+        return i;
+    }
+    bool is_same(int i, int j) { return find_root(i) == find_root(j); }
+};
+
+vector<vector<int> > minimum_spanning_tree() { // Kruskal's method, O(E \log E)
+    vector<vector<int> > tree(n + 1);
+    disjoint_sets sets(n + 1);
+    vector<tuple<double, int, int> > edges;
+    repeat (i, n + 1) {
+        repeat (j, i) {
+            edges.emplace_back(dist[i][j], i, j);
+        }
+    }
+    sort(whole(edges));
+    for (auto e : edges) {
+        int i, j; tie(ignore, i, j) = e;
+        if (not sets.is_same(i, j)) {
+            sets.union_sets(i, j);
+            tree[i].push_back(j);
+            tree[j].push_back(i);
+        }
+    }
+    return tree;
+}
+
+vector<int> solve_mst() {
+    vector<vector<int> > mst = minimum_spanning_tree();
+    vector<bool> used(n + 1);
+    vector<int> path;
+    function<void (int)> go = [&](int i) {
+        path.push_back(i);
+        used[i] = true;
+        sort(whole(mst[i]), [&](int j, int k) { return dist[path.back()][j] < dist[path.back()][k]; });
+        for (int j : mst[i]) if (not used[j]) {
+            go(j);
+        }
+    };
+    go(0);
+    return path;
+}
+
 vector<int> solve_both_sa() {
-    vector<int> path = solve_greedy();
+    vector<int> path = solve_mst();
     path.push_back(n + 1);
     double acc = calculate_length(path);
     vector<int> best = path;
